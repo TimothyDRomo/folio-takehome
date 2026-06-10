@@ -95,5 +95,20 @@ test('document readable_id is generated on creation', function () {
     assert_true(str_starts_with($doc['readable_id'], 'test-document-'), 'readable_id should start with slugified title');
 });
 
+test('document is accessible via readable_id', function () {
+    $stmt = db()->prepare('
+        INSERT INTO documents (title, body, readable_id, created_by)
+        VALUES (?, ?, ?, 1)
+    ');
+    $stmt->execute(['Readable Test', 'Test body', 'readable-test-abc']);
+
+    $stmt = db()->prepare('SELECT * FROM documents WHERE readable_id = ?');
+    $stmt->execute(['readable-test-abc']);
+    $doc = $stmt->fetch();
+
+    assert_true($doc !== false, 'document should be found by readable_id');
+    assert_true($doc['title'] === 'Readable Test', 'title should match');
+});
+
 echo "\n{$pass} passed, {$fail} failed.\n";
 exit($fail > 0 ? 1 : 0);
