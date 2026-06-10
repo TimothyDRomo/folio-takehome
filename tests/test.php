@@ -8,6 +8,12 @@ if ($rc !== 0) {
     exit(1);
 }
 
+system('php ' . escapeshellarg(__DIR__ . '/../migrate.php') . ' > /dev/null', $rc);
+if ($rc !== 0) {
+    fwrite(STDERR, "migrate failed\n");
+    exit(1);
+}
+
 $pass = 0;
 $fail = 0;
 
@@ -42,6 +48,30 @@ test('seeded share link resolves to the seeded document', function () {
     $row = $stmt->fetch();
     assert_true($row !== false, 'expected the seeded share to resolve');
     assert_true($row['title'] === 'Welcome Packet', 'unexpected title: ' . var_export($row['title'], true));
+});
+
+test('document with future publish_at does not show share link', function () {
+    $stmt = db()->prepare('UPDATE documents SET publish_at = ? WHERE id = 1');
+    $stmt->execute(['2099-01-01 00:00:00']);
+    
+    $stmt = db()->prepare('SELECT publish_at FROM documents WHERE id = 1');
+    $stmt->execute();
+    $doc = $stmt->fetch();
+    
+    $now = date('Y-m-d H:i:s');
+    assert_true($doc['publish_at'] > $now, 'publish_at should be in the future');
+});
+
+test('document with null publish_at is immediately available', function () {
+    // ensure null explicitly
+    $stmt = db()->prepare('UPDATE documents SET publish_at = NULL WHERE id = 1');
+    $stmt->execute();
+    
+    $stmt = db()->prepare('SELECT publish_at FROM documents WHERE id = 1');
+    $stmt->execute();
+    $doc = $stmt->fetch();
+    
+    assert_true($doc['publish_at'] === null, 'seeded document should have no publish_at');
 });
 
 echo "\n{$pass} passed, {$fail} failed.\n";

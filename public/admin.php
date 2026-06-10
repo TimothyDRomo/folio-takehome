@@ -9,18 +9,19 @@ $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $body = trim($_POST['body'] ?? '');
+    $publish_at = trim($_POST['publish_at'] ?? '') ?: null;
 
     if ($title === '' || $body === '') {
         $error = 'Title and body are required.';
     } else {
         $stmt = db()->prepare('
-            INSERT INTO documents (title, body, created_by)
-            VALUES (?, ?, ?)
+            INSERT INTO documents (title, body, publish_at, created_by)
+            VALUES (?, ?, ?, ?)
         ');
-        $stmt->execute([$title, $body, $staff['id']]);
+        $stmt->execute([$title, $body, $publish_at, $staff['id']]);
         $docId = (int) db()->lastInsertId();
 
-        audit_log('create', 'document', $docId, ['title' => $title]);
+        audit_log('create', 'document', $docId, ['title' => $title, 'publish_at' => $publish_at]);
 
         header('Location: /admin.php?created=' . $docId);
         exit;
@@ -59,6 +60,10 @@ render_header('Admin', $staff);
             <label for="body">Body</label>
             <textarea id="body" name="body" required></textarea>
         </div>
+        <div class="form-field">
+            <label for="publish_at">Publish Date</label>
+            <input type="datetime-local" id="publish_at" name="publish_at">
+        </div>
         <button type="submit" class="btn">Create document</button>
     </form>
 </section>
@@ -85,7 +90,13 @@ render_header('Admin', $staff);
                         <td><?= h($d['title']) ?></td>
                         <td><?= h($d['creator_name']) ?></td>
                         <td><?= h($d['created_at']) ?></td>
-                        <td><a href="/share.php?doc=<?= (int) $d['id'] ?>" class="btn-link">Create share →</a></td>
+                        <td>
+                            <?php if (isset($d['publish_at']) && $d['publish_at'] > date('Y-m-d H:i:s')): ?>
+                                <span class="muted">Available<br><?= h(date('m/d/Y g:i A', strtotime($d['publish_at']))) ?></span>
+                            <?php else: ?>
+                                <a href="/share.php?doc=<?= (int) $d['id'] ?>" class="btn-link">Create share →</a>
+                            <?php endif ?>
+                        </td>
                     </tr>
                 <?php endforeach ?>
             </tbody>
