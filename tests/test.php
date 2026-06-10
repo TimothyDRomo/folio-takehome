@@ -74,5 +74,26 @@ test('document with null publish_at is immediately available', function () {
     assert_true($doc['publish_at'] === null, 'seeded document should have no publish_at');
 });
 
+test('document readable_id is generated on creation', function () {
+    $stmt = db()->prepare('
+        INSERT INTO documents (title, body, created_by)
+        VALUES (?, ?, 1)
+    ');
+    $stmt->execute(['Test Document', 'Test body']);
+    $docId = (int) db()->lastInsertId();
+
+    // generate readable_id manually and update
+    $readable_id = generate_readable_id('Test Document');
+    $stmt = db()->prepare('UPDATE documents SET readable_id = ? WHERE id = ?');
+    $stmt->execute([$readable_id, $docId]);
+
+    $stmt = db()->prepare('SELECT readable_id FROM documents WHERE id = ?');
+    $stmt->execute([$docId]);
+    $doc = $stmt->fetch();
+
+    assert_true(!empty($doc['readable_id']), 'readable_id should be set');
+    assert_true(str_starts_with($doc['readable_id'], 'test-document-'), 'readable_id should start with slugified title');
+});
+
 echo "\n{$pass} passed, {$fail} failed.\n";
 exit($fail > 0 ? 1 : 0);

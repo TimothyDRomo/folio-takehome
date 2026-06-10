@@ -112,7 +112,7 @@ function generate_readable_id(string $input): string {
     $base = strtolower(preg_replace('/[^a-z0-9]+/i', '-', trim($input)));
     $base = substr($base, 0, 26);
     $base = trim($base, '-');
-    $chars = 'abcdefghjkmnpqrstuvwxyz23456789'; // no ambiguous chars
+    $chars = 'abcdefghjkmnpqrtuvwxy34679'; // no ambiguous chars (0/O, 1/l/i, s/5, 2/z removed)
     $suffix = '';
     for ($i = 0; $i < 3; $i++) {
         $suffix .= $chars[random_int(0, strlen($chars) - 1)];

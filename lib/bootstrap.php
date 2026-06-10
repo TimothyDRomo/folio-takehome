@@ -46,3 +46,16 @@ function random_token(int $bytes = 16): string {
 function h(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 }
+
+function generate_readable_id(string $input): string {
+    $base = strtolower(trim($input));
+    $base = preg_replace('/[^a-z0-9]+/', '-', $base);
+    $base = substr($base, 0, 26);
+    $base = trim($base, '-');
+    $chars = 'abcdefghjkmnpqrtuvwxy34679'; // no ambiguous chars (0/O, 1/l/i, s/5, 2/z removed)
+    $suffix = '';
+    for ($i = 0; $i < 3; $i++) {
+        $suffix .= $chars[random_int(0, strlen($chars) - 1)];
+    }
+    return $base . '-' . $suffix;
+}

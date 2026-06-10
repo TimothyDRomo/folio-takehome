@@ -9,19 +9,41 @@ $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $body = trim($_POST['body'] ?? '');
+    $readable_id_input = trim($_POST['readable_id'] ?? '');
     $publish_at = trim($_POST['publish_at'] ?? '') ?: null;
 
     if ($title === '' || $body === '') {
         $error = 'Title and body are required.';
     } else {
+        
+        if ($readable_id_input === '') {
+            $readable_id_input = $title;
+        }
+    
+        $readable_id = null;
+        $attempts = 0;
+        while ($readable_id === null && $attempts < 10) {
+            $candidate = generate_readable_id($readable_id_input);
+            $check = db()->prepare('SELECT id FROM documents WHERE readable_id = ?');
+            $check->execute([$candidate]);
+            if (!$check->fetch()) {
+                $readable_id = $candidate;
+            }
+            $attempts++;
+        }
+
         $stmt = db()->prepare('
-            INSERT INTO documents (title, body, publish_at, created_by)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO documents (title, body, publish_at, readable_id, created_by)
+            VALUES (?, ?, ?, ?, ?)
         ');
-        $stmt->execute([$title, $body, $publish_at, $staff['id']]);
+        $stmt->execute([$title, $body, $publish_at, $readable_id, $staff['id']]);
         $docId = (int) db()->lastInsertId();
 
-        audit_log('create', 'document', $docId, ['title' => $title, 'publish_at' => $publish_at]);
+        audit_log('create', 'document', $docId, [
+            'title' => $title, 
+            'publish_at' => $publish_at,
+            'readable_id' => $readable_id
+        ]);
 
         header('Location: /admin.php?created=' . $docId);
         exit;
@@ -61,6 +83,10 @@ render_header('Admin', $staff);
             <textarea id="body" name="body" required></textarea>
         </div>
         <div class="form-field">
+            <label for="readable_id">Readable ID (optional)</label>
+            <input type="text" id="readable_id" name="readable_id" maxlength="26" placeholder="Leave blank to generate from title">
+        </div>
+        <div class="form-field">
             <label for="publish_at">Publish Date</label>
             <input type="datetime-local" id="publish_at" name="publish_at">
         </div>
@@ -78,6 +104,7 @@ render_header('Admin', $staff);
                 <tr>
                     <th>ID</th>
                     <th>Title</th>
+                    <th>Readable ID</th>
                     <th>Creator</th>
                     <th>Created</th>
                     <th></th>
@@ -87,7 +114,12 @@ render_header('Admin', $staff);
                 <?php foreach ($docs as $d): ?>
                     <tr>
                         <td class="id">#<?= (int) $d['id'] ?></td>
-                        <td><?= h($d['title']) ?></td>
+                        <td>
+                            <?= h($d['title']) ?>
+                            <?php if ($d['readable_id']): ?>
+                                <br><small><?= h((string)($d['readable_id'] ?? '')) ?></small>
+                            <?php endif ?>
+                        </td>
                         <td><?= h($d['creator_name']) ?></td>
                         <td><?= h($d['created_at']) ?></td>
                         <td>
