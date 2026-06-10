@@ -110,5 +110,22 @@ test('document is accessible via readable_id', function () {
     assert_true($doc['title'] === 'Readable Test', 'title should match');
 });
 
+test('search filters documents by title', function () {
+    $stmt = db()->prepare('
+        INSERT INTO documents (title, body, created_by)
+        VALUES (?, ?, 1)
+    ');
+    $stmt->execute(['Searchable Document', 'Test body']);
+
+    $stmt = db()->prepare('
+        SELECT * FROM documents WHERE title LIKE ?
+    ');
+    $stmt->execute(['%Searchable%']);
+    $results = $stmt->fetchAll();
+
+    assert_true(count($results) === 1, 'should find exactly one matching document');
+    assert_true($results[0]['title'] === 'Searchable Document', 'title should match search term');
+});
+
 echo "\n{$pass} passed, {$fail} failed.\n";
 exit($fail > 0 ? 1 : 0);

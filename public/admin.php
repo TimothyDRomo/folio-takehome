@@ -50,12 +50,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$docs = db()->query('
-    SELECT d.*, s.name AS creator_name
-    FROM documents d
-    JOIN staff s ON s.id = d.created_by
-    ORDER BY d.created_at DESC
-')->fetchAll();
+$search = trim($_GET['search'] ?? '');
+
+if ($search !== '') {
+    $stmt = db()->prepare('
+        SELECT d.*, s.name AS creator_name
+        FROM documents d
+        JOIN staff s ON s.id = d.created_by
+        WHERE d.title LIKE ? OR d.readable_id LIKE ?
+        ORDER BY d.created_at DESC
+    ');
+    $stmt->execute(['%' . $search . '%', '%' . $search . '%']);
+    $docs = $stmt->fetchAll();
+} else {
+    $docs = db()->query('
+        SELECT d.*, s.name AS creator_name
+        FROM documents d
+        JOIN staff s ON s.id = d.created_by
+        ORDER BY d.created_at DESC
+    ')->fetchAll();
+}
 
 render_header('Admin', $staff);
 ?>
@@ -96,6 +110,15 @@ render_header('Admin', $staff);
 
 <section class="card">
     <h2 class="card-title">Documents</h2>
+    <form method="get" action="/admin.php">
+        <div class="form-field">
+            <input type="text" name="search" value="<?= h($search) ?>" placeholder="Search by title or readable ID...">
+            <button type="submit" class="btn">Search</button>
+            <?php if ($search !== ''): ?>
+                <a href="/admin.php" class="btn">Clear</a>
+            <?php endif ?>
+        </div>
+    </form>
     <?php if (empty($docs)): ?>
         <p class="empty">No documents yet.</p>
     <?php else: ?>
@@ -104,7 +127,6 @@ render_header('Admin', $staff);
                 <tr>
                     <th>ID</th>
                     <th>Title</th>
-                    <th>Readable ID</th>
                     <th>Creator</th>
                     <th>Created</th>
                     <th></th>
